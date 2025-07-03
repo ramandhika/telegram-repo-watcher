@@ -45,7 +45,7 @@ export async function createBot(db: Database) {
     const args = ctx.match.split(" ");
     if (args.length < 1 || !args[0].includes("/")) {
       return ctx.reply(
-        "Format salah. Gunakan: `/add <owner/repo> [branch]`. Contoh: `/add octocat/Spoon-Knife main`"
+        "Format salah. Gunakan: `/add <owner/repo> [branch]`. Contoh: `/add ramandhika/telegram-repo-watcher`"
       );
     }
 
