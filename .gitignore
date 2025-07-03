@@ -3,6 +3,7 @@
 # folder
 /data
 /public
+/dist
 
 # dependencies
 /node_modules

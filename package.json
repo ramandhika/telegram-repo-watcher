@@ -1,9 +1,12 @@
 {
-  "name": "telegram-github-bot-gemini",
+  "name": "telegram-github-bot",
   "version": "1.0.50",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --target node --outfile dist/index.js --external sqlite3 --external sqlite",
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "@elysiajs/static": "^1.3.0",
@@ -21,6 +24,5 @@
     "@types/sqlite3": "^5.1.0",
     "bun-types": "latest",
     "typescript": "^5.8.3"
-  },
-  "module": "src/index.js"
+  }
 }
