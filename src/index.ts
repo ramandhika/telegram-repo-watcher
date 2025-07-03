@@ -152,7 +152,7 @@ async function main() {
             const commitUrl = commitData.html_url;
 
             const message =
-              `✨ *Update detected on ${owner}/${repoName}@${branch}*\n` +
+              `🚀 *Update detected on ${owner}/${repoName}@${branch}*\n` +
               `*Author:* ${commitAuthor}\n` +
               `*Message:* ${commitMessage}\n` +
               `*Commit:* [${latestSha.substring(0, 7)}](${commitUrl})`;

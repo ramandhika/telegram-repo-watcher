@@ -21,12 +21,9 @@ interface User {
 export async function createBot(db: Database) {
   const bot = new Bot(process.env.BOT_TOKEN || "");
 
-  // --- Middleware untuk menyimpan dan mengambil data user/repo ---
-  // Ini akan menambahkan objek `db` ke `ctx` (konteks Grammys)
-  // sehingga Anda bisa mengakses database di setiap handler perintah.
   bot.use(async (ctx, next) => {
     ctx.db = db;
-    await next(); // Penting: panggil next() untuk melanjutkan ke handler berikutnya
+    await next();
   });
 
   // --- Commands ---
@@ -37,7 +34,8 @@ export async function createBot(db: Database) {
         "/add <owner/repo> [branch] - Tambahkan repositori untuk dipantau.\n" +
         "/list - Lihat daftar repositori yang dipantau.\n" +
         "/delete <ID_REPO> - Hapus repositori dari pantauan.\n" +
-        "/login <username> <token> - Login dengan akun GitHub untuk memantau repositori private."
+        "/login <username> <token> - Login dengan akun GitHub untuk memantau repositori private.\n" +
+        "/update_list - Picu pengecekan commit untuk semua repositori secara manual."
     );
   });
 
@@ -45,12 +43,12 @@ export async function createBot(db: Database) {
     const args = ctx.match.split(" ");
     if (args.length < 1 || !args[0].includes("/")) {
       return ctx.reply(
-        "Format salah. Gunakan: `/add <owner/repo> [branch]`. Contoh: `/add ramandhika/telegram-repo-watcher`"
+        "Format salah. Gunakan: `/add <owner/repo> [branch]`. Contoh: `/add octocat/Spoon-Knife main`"
       );
     }
 
     const [owner, repo] = args[0].split("/");
-    const branch = args[1] || "master"; // Default branch ke 'master' jika tidak disediakan
+    const branch = args[1] || "master";
 
     if (!owner || !repo) {
       return ctx.reply("Owner atau nama repositori tidak valid.");
@@ -58,7 +56,6 @@ export async function createBot(db: Database) {
 
     const chatId = ctx.chat.id;
 
-    // Cek apakah user sudah login untuk repo private
     const user: User | undefined = await ctx.db.get(
       "SELECT * FROM users WHERE chat_id = ?",
       chatId
@@ -68,7 +65,6 @@ export async function createBot(db: Database) {
       githubToken = user.github_token;
     }
 
-    // Dapatkan SHA commit terakhir
     const lastCommitSha = await getLastCommitSha(
       owner,
       repo,
@@ -94,7 +90,6 @@ export async function createBot(db: Database) {
         `Repositori *${owner}/${repo}* (branch: ${branch}) berhasil ditambahkan untuk dipantau.`
       );
     } catch (error: any) {
-      // Menggunakan 'any' untuk error agar bisa mengakses properti message
       if (error.message.includes("UNIQUE constraint failed")) {
         return ctx.reply(
           `Repositori *${owner}/${repo}* (branch: ${branch}) sudah ada dalam daftar pantauan Anda.`
@@ -173,9 +168,8 @@ export async function createBot(db: Database) {
     const chatId = ctx.chat.id;
 
     try {
-      // Coba validasi token dengan mengambil data user
       const octokit = getOctokit(token);
-      await octokit.users.getAuthenticated(); // Ini akan throw error jika token tidak valid
+      await octokit.users.getAuthenticated();
 
       await ctx.db.run(
         "INSERT OR REPLACE INTO users (chat_id, github_username, github_token) VALUES (?, ?, ?)",
@@ -190,6 +184,37 @@ export async function createBot(db: Database) {
       console.error("Error logging in:", error);
       await ctx.reply(
         "Gagal login. Pastikan username dan Personal Access Token (PAT) Anda benar dan memiliki scope yang cukup (misalnya `repo`)."
+      );
+    }
+  });
+
+  // --- Perintah baru untuk memicu update manual ---
+  bot.command("update_list", async (ctx) => {
+    // Pastikan server Elysia.js berjalan dan dapat diakses dari bot.
+    // Jika bot berjalan di server yang sama dengan Elysia, bisa pakai localhost.
+    // Jika bot di tempat lain, harus pakai URL publik (ngrok/domain).
+    const baseUrl =
+      process.env.PUBLIC_BASE_URL ||
+      `http://localhost:${process.env.PORT || 3000}`; // Sesuaikan jika bot dan server beda lokasi
+
+    try {
+      await ctx.reply(
+        "Memicu pengecekan commit manual... Silakan tunggu beberapa saat."
+      );
+      const response = await fetch(`${baseUrl}/update`);
+      const data = await response.json();
+
+      if (response.ok) {
+        await ctx.reply(`Pengecekan selesai: ${data.message}`);
+      } else {
+        await ctx.reply(
+          `Gagal memicu pengecekan commit: ${data.message || "Server error"}`
+        );
+      }
+    } catch (error) {
+      console.error("Error triggering /update endpoint:", error);
+      await ctx.reply(
+        "Terjadi kesalahan saat mencoba memicu pengecekan commit. Pastikan server bot dan endpoint /update berjalan."
       );
     }
   });
@@ -212,7 +237,6 @@ export async function createBot(db: Database) {
   return bot;
 }
 
-// Tambahkan deklarasi ke tipe `Context` Grammys
 declare module "grammy" {
   interface Context {
     db: Database;
